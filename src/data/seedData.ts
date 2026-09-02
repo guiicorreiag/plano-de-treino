@@ -12,6 +12,9 @@ export type SeedWorkoutExercise = {
   repsMax?: number
   durationSeconds?: number
   restSeconds: number
+  restSecondsMax?: number
+  rpeMin?: number
+  rpeMax?: number
   notes?: string
   safetyNotes?: string
 }
@@ -55,8 +58,8 @@ export const seedExercises: SeedExercise[] = [
   { name: 'Face pull', category: 'ombros' },
 ]
 
-const warmup: SeedWorkoutExercise = { exercise: 'Esteira ou bicicleta', sets: 1, durationSeconds: 480, restSeconds: 0, notes: '7–8 minutos em ritmo confortável.' }
-const cardio: SeedWorkoutExercise = { exercise: 'Cardio leve/moderado', sets: 1, durationSeconds: 900, restSeconds: 0, notes: 'Ajustar de 10 a 20 minutos conforme a semana de progressão.' }
+const warmup: SeedWorkoutExercise = { exercise: 'Esteira ou bicicleta', sets: 1, durationSeconds: 480, restSeconds: 0, notes: '7–8 minutos em intensidade leve.' }
+const cardio: SeedWorkoutExercise = { exercise: 'Cardio leve/moderado', sets: 1, durationSeconds: 900, restSeconds: 0, notes: 'Semana 1: 10–15 min; semana 2: 15 min; semana 3: 15–20 min; semana 4: até aproximadamente 20 min.' }
 
 export const seedWorkouts: SeedWorkout[] = [
   {
@@ -64,14 +67,14 @@ export const seedWorkouts: SeedWorkout[] = [
     description: 'Peito, costas, ombros, braços, core e cardio.',
     exercises: [
       warmup,
-      { exercise: 'Chest press / supino máquina', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90 },
-      { exercise: 'Puxada frontal', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90, notes: 'Pegada neutra.' },
-      { exercise: 'Remada baixa sentada com apoio', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90 },
-      { exercise: 'Supino inclinado com halteres', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 75 },
-      { exercise: 'Elevação lateral', sets: 2, repsMin: 12, repsMax: 15, restSeconds: 60 },
-      { exercise: 'Rosca direta na polia', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 60 },
-      { exercise: 'Tríceps corda', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 60 },
-      { exercise: 'Pallof press', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 60, notes: 'Por lado.' },
+      { exercise: 'Chest press / supino máquina', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 90, restSecondsMax: 150, rpeMin: 5, rpeMax: 7 },
+      { exercise: 'Puxada frontal', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 90, restSecondsMax: 150, rpeMin: 5, rpeMax: 7, notes: 'Pegada neutra.' },
+      { exercise: 'Remada baixa sentada com apoio', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 90, restSecondsMax: 150, rpeMin: 5, rpeMax: 7 },
+      { exercise: 'Supino inclinado com halteres', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 90, restSecondsMax: 120, rpeMin: 5, rpeMax: 7 },
+      { exercise: 'Elevação lateral', sets: 2, repsMin: 12, repsMax: 15, restSeconds: 60, restSecondsMax: 90, rpeMin: 6, rpeMax: 7 },
+      { exercise: 'Rosca direta na polia', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 60, restSecondsMax: 90, rpeMin: 6, rpeMax: 7 },
+      { exercise: 'Tríceps corda', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 60, restSecondsMax: 90, rpeMin: 6, rpeMax: 7 },
+      { exercise: 'Pallof press', sets: 2, repsMin: 8, repsMax: 12, restSeconds: 45, restSecondsMax: 75, notes: 'Por lado.' },
       cardio,
     ],
   },
@@ -80,13 +83,13 @@ export const seedWorkouts: SeedWorkout[] = [
     description: 'Pernas, glúteos, estabilidade do tronco e cardio.',
     exercises: [
       warmup,
-      { exercise: 'Cadeira extensora', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 75 },
-      { exercise: 'Mesa ou cadeira flexora', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 75 },
-      { exercise: 'Leg press 90° ou 45°', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90 },
-      { exercise: 'Elevação pélvica máquina', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 90 },
-      { exercise: 'Abdução de quadril na polia baixa', sets: 2, repsMin: 12, repsMax: 15, restSeconds: 60, notes: 'Por perna.' },
-      { exercise: 'Panturrilha em máquina ou leg press', sets: 3, repsMin: 12, repsMax: 15, restSeconds: 60 },
-      { exercise: 'Bird-dog', sets: 2, repsMin: 6, repsMax: 8, restSeconds: 45, notes: 'Por lado.' },
+      { exercise: 'Leg press 90° ou 45°', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 90, restSecondsMax: 150, rpeMin: 5, rpeMax: 7 },
+      { exercise: 'Cadeira extensora', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 60, restSecondsMax: 90, rpeMin: 6, rpeMax: 6 },
+      { exercise: 'Mesa ou cadeira flexora', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 60, restSecondsMax: 90, rpeMin: 6, rpeMax: 6 },
+      { exercise: 'Elevação pélvica máquina', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 90, restSecondsMax: 150, rpeMin: 5, rpeMax: 7 },
+      { exercise: 'Abdução de quadril na polia baixa', sets: 2, repsMin: 12, repsMax: 15, restSeconds: 60, restSecondsMax: 90, notes: 'Por lado.' },
+      { exercise: 'Panturrilha em máquina ou leg press', sets: 2, repsMin: 12, repsMax: 15, restSeconds: 60, restSecondsMax: 90 },
+      { exercise: 'Bird-dog', sets: 2, repsMin: 6, repsMax: 8, restSeconds: 45, restSecondsMax: 75, notes: 'Por lado.' },
       cardio,
     ],
   },
@@ -95,14 +98,14 @@ export const seedWorkouts: SeedWorkout[] = [
     description: 'Segundo estímulo de superiores, core e cardio.',
     exercises: [
       warmup,
-      { exercise: 'Supino inclinado máquina', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90 },
-      { exercise: 'Puxada frontal', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90, notes: 'Pegada confortável.' },
-      { exercise: 'Remada articulada com apoio de peito', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90 },
-      { exercise: 'Peck deck / crucifixo máquina', sets: 2, repsMin: 12, repsMax: 15, restSeconds: 75 },
-      { exercise: 'Desenvolvimento de ombros em máquina', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 75 },
-      { exercise: 'Rosca Scott máquina', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 60 },
-      { exercise: 'Tríceps máquina ou barra na polia', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 60 },
-      { exercise: 'Pallof press', sets: 2, repsMin: 10, repsMax: 10, restSeconds: 60, notes: 'Por lado.' },
+      { exercise: 'Supino inclinado máquina', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 90, restSecondsMax: 150, rpeMin: 5, rpeMax: 7 },
+      { exercise: 'Puxada frontal', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 90, restSecondsMax: 150, rpeMin: 5, rpeMax: 7, notes: 'Pegada confortável.' },
+      { exercise: 'Remada articulada com apoio de peito', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 90, restSecondsMax: 150, rpeMin: 5, rpeMax: 7 },
+      { exercise: 'Peck deck / crucifixo máquina', sets: 2, repsMin: 12, repsMax: 15, restSeconds: 60, restSecondsMax: 90, rpeMin: 6, rpeMax: 7 },
+      { exercise: 'Desenvolvimento de ombros em máquina', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 90, restSecondsMax: 120, rpeMin: 5, rpeMax: 7 },
+      { exercise: 'Rosca Scott máquina', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 60, restSecondsMax: 90, rpeMin: 6, rpeMax: 7 },
+      { exercise: 'Tríceps máquina ou barra na polia', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 60, restSecondsMax: 90, rpeMin: 6, rpeMax: 7 },
+      { exercise: 'Pallof press', sets: 2, repsMin: 10, repsMax: 10, restSeconds: 45, restSecondsMax: 75, notes: 'Por lado.' },
       cardio,
     ],
   },
@@ -111,14 +114,14 @@ export const seedWorkouts: SeedWorkout[] = [
     description: 'Segundo estímulo de inferiores com foco em estabilidade.',
     exercises: [
       warmup,
-      { exercise: 'Mesa ou cadeira flexora', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 75 },
-      { exercise: 'Cadeira extensora', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 75 },
-      { exercise: 'Leg press 90° ou 45°', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90 },
-      { exercise: 'Step-up baixo com apoio', sets: 2, repsMin: 8, repsMax: 10, restSeconds: 75, notes: 'Por perna.' },
-      { exercise: 'Elevação pélvica máquina', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 90 },
-      { exercise: 'Panturrilha em máquina ou leg press', sets: 3, repsMin: 12, repsMax: 15, restSeconds: 60 },
-      { exercise: 'Bird-dog', sets: 2, repsMin: 6, repsMax: 8, restSeconds: 45, notes: 'Por lado.' },
-      { exercise: 'Prancha lateral modificada', sets: 2, durationSeconds: 20, restSeconds: 45, notes: '15–25 segundos por lado.' },
+      { exercise: 'Leg press 90° ou 45°', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 90, restSecondsMax: 150, rpeMin: 5, rpeMax: 7 },
+      { exercise: 'Mesa ou cadeira flexora', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 60, restSecondsMax: 90, rpeMin: 6, rpeMax: 7 },
+      { exercise: 'Cadeira extensora', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 60, restSecondsMax: 90, rpeMin: 6, rpeMax: 7 },
+      { exercise: 'Step-up baixo com apoio', sets: 2, repsMin: 8, repsMax: 10, restSeconds: 75, restSecondsMax: 120, rpeMin: 5, rpeMax: 7, notes: 'Por perna.' },
+      { exercise: 'Elevação pélvica máquina', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 90, restSecondsMax: 150, rpeMin: 5, rpeMax: 7 },
+      { exercise: 'Panturrilha em máquina ou leg press', sets: 2, repsMin: 12, repsMax: 15, restSeconds: 60, restSecondsMax: 90 },
+      { exercise: 'Bird-dog', sets: 2, repsMin: 6, repsMax: 8, restSeconds: 45, restSecondsMax: 75, notes: 'Por lado.' },
+      { exercise: 'Prancha lateral modificada', sets: 2, durationSeconds: 20, restSeconds: 45, restSecondsMax: 75, notes: '15–25 segundos por lado, inicialmente com joelhos apoiados.' },
       cardio,
     ],
   },
@@ -126,14 +129,12 @@ export const seedWorkouts: SeedWorkout[] = [
     code: 'E', name: 'Cardio + core + braços', weekday: 3, optional: true,
     description: 'Sessão opcional moderada; não substitui A/B/C/D.',
     exercises: [
-      { exercise: 'Cardio leve/moderado', sets: 1, durationSeconds: 1500, restSeconds: 0, notes: '20–30 minutos. Sem HIIT no primeiro mês.' },
-      { exercise: 'Rosca martelo com halteres', sets: 2, repsMin: 12, repsMax: 12, restSeconds: 60 },
-      { exercise: 'Tríceps corda', sets: 2, repsMin: 12, repsMax: 12, restSeconds: 60 },
-      { exercise: 'Elevação lateral', sets: 2, repsMin: 15, repsMax: 15, restSeconds: 60 },
-      { exercise: 'Face pull', sets: 2, repsMin: 15, repsMax: 15, restSeconds: 60 },
-      { exercise: 'Pallof press', sets: 2, repsMin: 10, repsMax: 10, restSeconds: 60, notes: 'Por lado.' },
-      { exercise: 'Bird-dog', sets: 2, repsMin: 6, repsMax: 8, restSeconds: 45, notes: 'Por lado.' },
-      { exercise: 'Prancha lateral modificada', sets: 2, durationSeconds: 20, restSeconds: 45, notes: '15–25 segundos por lado.' },
+      { exercise: 'Cardio leve/moderado', sets: 1, durationSeconds: 1500, restSeconds: 0, notes: '20–30 minutos, intensidade leve/moderada. Esteira, bicicleta ou elíptico. Sem HIIT.' },
+      { exercise: 'Face pull', sets: 2, repsMin: 12, repsMax: 15, restSeconds: 60, restSecondsMax: 90, rpeMin: 6, rpeMax: 6 },
+      { exercise: 'Rosca martelo com halteres', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 60, restSecondsMax: 90, rpeMin: 6, rpeMax: 6 },
+      { exercise: 'Tríceps corda', sets: 2, repsMin: 10, repsMax: 12, restSeconds: 60, restSecondsMax: 90, rpeMin: 6, rpeMax: 6 },
+      { exercise: 'Pallof press', sets: 2, repsMin: 10, repsMax: 10, restSeconds: 45, restSecondsMax: 75, notes: 'Por lado.' },
+      { exercise: 'Prancha lateral modificada', sets: 2, durationSeconds: 20, restSeconds: 45, restSecondsMax: 75, notes: '15–25 segundos por lado, inicialmente com joelhos apoiados.' },
     ],
   },
 ]

@@ -7,7 +7,7 @@ PWA mobile-first para acompanhamento pessoal de musculação, condicionamento, c
 - autenticação Supabase por e-mail e senha;
 - sessão persistente no navegador;
 - criação idempotente do perfil e dos treinos A/B/C/D/E no primeiro acesso;
-- ficha de readaptação de setembro/2026 (A/B/C/D + E opcional);
+- ficha de readaptação de setembro/2026: A/B/C/D de segunda a quinta e sexta reservada ao E opcional ou descanso;
 - registro por série de carga, repetições/duração, RPE, dor, técnica e amplitude;
 - cronômetro de descanso, check-in pré e pós-treino e registro de cardio;
 - histórico de sessões, medidas corporais e check-in semanal;

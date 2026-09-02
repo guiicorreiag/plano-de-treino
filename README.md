@@ -2,17 +2,22 @@
 
 PWA mobile-first para acompanhamento pessoal de musculação, condicionamento, composição corporal e evolução da dor lombar.
 
-## Estado atual
+## Estado atual — operacional
 
 - autenticação Supabase por e-mail e senha;
 - sessão persistente no navegador;
 - criação idempotente do perfil e dos treinos A/B/C/D/E no primeiro acesso;
+- ficha de readaptação de setembro/2026 (A/B/C/D + E opcional);
+- registro por série de carga, repetições/duração, RPE, dor, técnica e amplitude;
+- cronômetro de descanso, check-in pré e pós-treino e registro de cardio;
+- histórico de sessões, medidas corporais e check-in semanal;
+- retomada local de treino interrompido e PWA instalável;
 - shell mobile-first em tema escuro;
 - manifest e service worker para instalação como PWA;
 - build e deploy preparados para GitHub Pages;
 - RLS no Supabase: cada usuário acessa apenas os próprios dados.
 
-O registro completo de séries, cronômetro, histórico, IndexedDB e sincronização offline serão implementados nas próximas etapas.
+O service worker mantém o aplicativo disponível após o primeiro carregamento. Um treino já iniciado preserva o rascunho no dispositivo e pode ser retomado; a sincronização definitiva com o banco exige conexão.
 
 ## Requisitos
 
@@ -55,9 +60,7 @@ npm run preview
 
 ## Publicação no GitHub Pages
 
-1. Crie um repositório chamado `plano-de-treino`.
-2. Envie estes arquivos para a branch `main`.
-3. Envie um commit para `main` ou execute manualmente o workflow **Deploy GitHub Pages**.
+O repositório é publicado automaticamente no GitHub Pages a cada commit na branch `main` pelo workflow **Deploy GitHub Pages**.
 
 A URL e a publishable key usadas pelo frontend são públicas por definição e estão no workflow. A segurança dos dados é garantida pelas políticas RLS. Nunca adicione uma `service_role`, `sb_secret_...` ou outra chave secreta ao repositório.
 

@@ -94,7 +94,7 @@ export const seedWorkouts: SeedWorkout[] = [
     ],
   },
   {
-    code: 'C', name: 'Superior 2', weekday: 4, optional: false,
+    code: 'C', name: 'Superior 2', weekday: 3, optional: false,
     description: 'Segundo estímulo de superiores, core e cardio.',
     exercises: [
       warmup,
@@ -110,7 +110,7 @@ export const seedWorkouts: SeedWorkout[] = [
     ],
   },
   {
-    code: 'D', name: 'Inferior 2', weekday: 5, optional: false,
+    code: 'D', name: 'Inferior 2', weekday: 4, optional: false,
     description: 'Segundo estímulo de inferiores com foco em estabilidade.',
     exercises: [
       warmup,
@@ -126,8 +126,8 @@ export const seedWorkouts: SeedWorkout[] = [
     ],
   },
   {
-    code: 'E', name: 'Cardio + core + braços', weekday: 3, optional: true,
-    description: 'Sessão opcional moderada; não substitui A/B/C/D.',
+    code: 'E', name: 'Cardio + core + braços', weekday: 5, optional: true,
+    description: 'Sexta-feira opcional de baixa fadiga; pode ser substituída por descanso e não substitui A/B/C/D.',
     exercises: [
       { exercise: 'Cardio leve/moderado', sets: 1, durationSeconds: 1500, restSeconds: 0, notes: '20–30 minutos, intensidade leve/moderada. Esteira, bicicleta ou elíptico. Sem HIIT.' },
       { exercise: 'Face pull', sets: 2, repsMin: 12, repsMax: 15, restSeconds: 60, restSecondsMax: 90, rpeMin: 6, rpeMax: 6 },

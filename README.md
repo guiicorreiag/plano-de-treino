@@ -57,13 +57,9 @@ npm run preview
 
 1. Crie um repositório chamado `plano-de-treino`.
 2. Envie estes arquivos para a branch `main`.
-3. Em **Settings → Secrets and variables → Actions**, crie:
-   - `VITE_SUPABASE_URL`;
-   - `VITE_SUPABASE_PUBLISHABLE_KEY`.
-4. Em **Settings → Pages**, selecione **GitHub Actions** como fonte.
-5. Envie um commit para `main` ou execute manualmente o workflow **Deploy GitHub Pages**.
+3. Envie um commit para `main` ou execute manualmente o workflow **Deploy GitHub Pages**.
 
-A publishable key pode existir no bundle público; a segurança dos dados é garantida pelas políticas RLS. O workflow usa secrets para evitar gravá-la diretamente no repositório.
+A URL e a publishable key usadas pelo frontend são públicas por definição e estão no workflow. A segurança dos dados é garantida pelas políticas RLS. Nunca adicione uma `service_role`, `sb_secret_...` ou outra chave secreta ao repositório.
 
 ## Estratégia de inicialização
 

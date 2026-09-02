@@ -10,6 +10,12 @@ describe('carga inicial de treinos', () => {
     expect(seedWorkouts.filter((workout) => workout.optional).map((workout) => workout.code)).toEqual(['E'])
   })
 
+  it('concentra A/B/C/D de segunda a quinta e deixa sexta para E ou descanso', () => {
+    expect(seedWorkouts.map((workout) => [workout.code, workout.weekday])).toEqual([
+      ['A', 1], ['B', 2], ['C', 3], ['D', 4], ['E', 5],
+    ])
+  })
+
   it('não referencia exercícios ausentes', () => {
     const names = new Set(seedExercises.map((exercise) => exercise.name))
     const references = seedWorkouts.flatMap((workout) => workout.exercises.map((item) => item.exercise))

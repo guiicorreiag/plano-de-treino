@@ -5,6 +5,14 @@ export const septemberWeeks = [
   { week: 4, rpe: '6–7', goal: 'Consolidar sem obrigação de superar a semana 3.' },
 ] as const
 
+export const weeklySchedule = [
+  'Segunda: Treino A — Superior 1',
+  'Terça: Treino B — Inferior 1',
+  'Quarta: Treino C — Superior 2',
+  'Quinta: Treino D — Inferior 2',
+  'Sexta: Treino E opcional ou descanso',
+] as const
+
 export const lumbarGuidance = {
   green: 'Padrão habitual, estável e sem sintomas neurológicos: continuar.',
   yellow: 'Dor aumenta, muda ou altera a execução: reduzir amplitude e carga; substituir se persistir.',

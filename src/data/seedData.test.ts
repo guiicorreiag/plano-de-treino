@@ -19,4 +19,18 @@ describe('carga inicial de treinos', () => {
   it('preserva alertas de segurança no leg press', () => {
     expect(seedExercises.find((exercise) => exercise.name.startsWith('Leg press'))?.safetyNotes).toContain('lombar')
   })
+
+  it('usa duas séries de trabalho no bloco de readaptação', () => {
+    const workSets = seedWorkouts.flatMap((workout) => workout.exercises)
+      .filter((item) => !['Esteira ou bicicleta', 'Cardio leve/moderado'].includes(item.exercise))
+    expect(workSets.every((item) => item.sets === 2)).toBe(true)
+  })
+
+  it('mantém o treino E curto e sem os complementos removidos', () => {
+    const optional = seedWorkouts.find((workout) => workout.code === 'E')!
+    expect(optional.exercises.map((item) => item.exercise)).toEqual([
+      'Cardio leve/moderado', 'Face pull', 'Rosca martelo com halteres',
+      'Tríceps corda', 'Pallof press', 'Prancha lateral modificada',
+    ])
+  })
 })

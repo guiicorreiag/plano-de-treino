@@ -1,85 +1,67 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { initializeUser, type InitializationResult } from '../data/initializeUser'
+import { initializeUser } from '../data/initializeUser'
+import { lumbarGuidance, septemberWeek, septemberWeeks } from '../data/programRules'
+import { supabase } from '../lib/supabase'
 
-type Props = { user: User; onSignOut: () => Promise<void> }
+type Tab = 'today' | 'workouts' | 'history' | 'body' | 'more'
+type ExerciseItem = { id:string; exercise_id:string; sort_order:number; target_sets:number; target_reps_min:number|null; target_reps_max:number|null; target_duration_seconds:number|null; target_rpe_min:number|null; target_rpe_max:number|null; rest_seconds_min:number|null; rest_seconds_max:number|null; notes:string|null; safety_notes:string|null; exercise:{name:string;category:string;instructions:string|null;safety_notes:string|null} }
+type Template = { id:string;code:string;name:string;description:string|null;weekday:number;is_optional:boolean;exercises:ExerciseItem[] }
+type Session = { id:string;name:string;started_at:string;pain_before:number|null;pain_after:number|null;workout_quality:number|null;total_duration_minutes:number|null }
+type Measurement = { id:string;measured_at:string;weight_kg:number|null;waist_cm:number|null }
+type Draft = { weight:string;reps:string;duration:string;rpe:string;pain:string;technique:boolean;amplitude:boolean;saved:boolean }
+const monday=()=>{const d=new Date(),day=d.getDay()||7;d.setDate(d.getDate()-day+1);return d.toISOString().slice(0,10)}
+const num=(v:string)=>v.trim()===''?null:Number(v)
 
-export function HomePage({ user, onSignOut }: Props) {
-  const [result, setResult] = useState<InitializationResult | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [attempt, setAttempt] = useState(0)
-
-  useEffect(() => {
-    let active = true
-    setError(null)
-    void initializeUser(user)
-      .then((value) => active && setResult(value))
-      .catch((reason: unknown) => active && setError(reason instanceof Error ? reason.message : 'Falha ao preparar seus treinos.'))
-    return () => { active = false }
-  }, [user, attempt])
-
-  if (error) {
-    return (
-      <main className="center-state">
-        <div className="status-icon danger">!</div>
-        <h1>Não foi possível sincronizar</h1>
-        <p className="muted">Se estiver sem internet, tente novamente quando a conexão retornar.</p>
-        <button className="primary-button" onClick={() => setAttempt((value) => value + 1)}>Tentar novamente</button>
-      </main>
-    )
-  }
-
-  if (!result) {
-    return (
-      <main className="center-state">
-        <div className="spinner" aria-label="Carregando" />
-        <h1>Preparando seus treinos</h1>
-        <p className="muted">Isso acontece apenas no primeiro acesso.</p>
-      </main>
-    )
-  }
-
-  return (
-    <div className="app-shell">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">HOJE</p>
-          <h1>Olá, {user.email?.split('@')[0]}</h1>
-        </div>
-        <button className="icon-button" onClick={() => void onSignOut()} aria-label="Sair">↗</button>
-      </header>
-
-      <main className="content">
-        <section className="hero-card">
-          <div>
-            <span className="badge">PRÓXIMO TREINO</span>
-            <h2>A — Superior 1</h2>
-            <p>Peito, costas, ombros, braços e core</p>
-          </div>
-          <button className="start-button" disabled>Iniciar treino</button>
-          <small>O registro de séries será implementado na próxima etapa.</small>
-        </section>
-
-        <section className="metric-grid" aria-label="Resumo semanal">
-          <article><strong>0/4</strong><span>Treinos na semana</span></article>
-          <article><strong>0 min</strong><span>Cardio na semana</span></article>
-          <article><strong>—</strong><span>Dor lombar média</span></article>
-          <article><strong>{result.workoutCount}</strong><span>Treinos preparados</span></article>
-        </section>
-
-        <section className="safety-card">
-          <span className="safety-dot" />
-          <div><strong>Check-in da lombar</strong><p>Registre a dor antes do treino para liberar recomendações seguras.</p></div>
-        </section>
-      </main>
-
-      <nav className="bottom-nav" aria-label="Navegação principal">
-        <button className="active"><span>●</span>Hoje</button>
-        <button disabled><span>▦</span>Treinos</button>
-        <button disabled><span>↗</span>Evolução</button>
-        <button disabled><span>○</span>Corpo</button>
-        <button disabled><span>•••</span>Mais</button>
-      </nav>
-    </div>
-  )
+export function HomePage({user,onSignOut}:{user:User;onSignOut:()=>Promise<void>}){
+ const [ready,setReady]=useState(false),[error,setError]=useState(''),[retry,setRetry]=useState(0),[tab,setTab]=useState<Tab>('today')
+ const [templates,setTemplates]=useState<Template[]>([]),[sessions,setSessions]=useState<Session[]>([]),[measurements,setMeasurements]=useState<Measurement[]>([])
+ const [selected,setSelected]=useState<Template|null>(null),[active,setActive]=useState<{id:string;startedAt:string;template:Template}|null>(null)
+ const refresh=useCallback(async()=>{if(!supabase)return;const [t,s,m]=await Promise.all([
+  supabase.from('workout_templates').select('id,code,name,description,weekday,is_optional,workout_exercises(id,exercise_id,sort_order,target_sets,target_reps_min,target_reps_max,target_duration_seconds,target_rpe_min,target_rpe_max,rest_seconds_min,rest_seconds_max,notes,safety_notes,deleted_at,exercises(name,category,instructions,safety_notes))').eq('user_id',user.id).is('deleted_at',null).eq('is_active',true).order('sort_order'),
+  supabase.from('workout_sessions').select('id,name,started_at,pain_before,pain_after,workout_quality,total_duration_minutes').eq('user_id',user.id).eq('status','completed').is('deleted_at',null).order('started_at',{ascending:false}).limit(30),
+  supabase.from('body_measurements').select('id,measured_at,weight_kg,waist_cm').eq('user_id',user.id).is('deleted_at',null).order('measured_at',{ascending:false}).limit(20)])
+  if(t.error)throw t.error;setTemplates((t.data??[]).map((r:any)=>({...r,exercises:(r.workout_exercises??[]).filter((x:any)=>!x.deleted_at).map((x:any)=>({...x,exercise:Array.isArray(x.exercises)?x.exercises[0]:x.exercises})).sort((a:ExerciseItem,b:ExerciseItem)=>a.sort_order-b.sort_order)})));setSessions((s.data??[]) as Session[]);setMeasurements((m.data??[]) as Measurement[])
+ },[user.id])
+ useEffect(()=>{let live=true;void initializeUser(user).then(async()=>{if(live){await refresh();const saved=localStorage.getItem('training.active');if(saved){try{const parsed=JSON.parse(saved);if(parsed?.userId===user.id&&parsed?.id&&parsed?.template)setActive({id:parsed.id,startedAt:parsed.startedAt,template:parsed.template})}catch{localStorage.removeItem('training.active')}}setReady(true)}}).catch((e)=>live&&setError(e instanceof Error?e.message:'Falha ao sincronizar.'));return()=>{live=false}},[user,retry,refresh])
+ const today=useMemo(()=>templates.find(x=>x.weekday===new Date().getDay())??templates.find(x=>x.code==='A')??null,[templates]);const week=sessions.filter(x=>x.started_at.slice(0,10)>=monday());const pain=week.map(x=>x.pain_after).filter((x):x is number=>x!=null);const painAvg=pain.length?(pain.reduce((a,b)=>a+b,0)/pain.length).toFixed(1):'—'
+ if(error)return <main className="center-state"><div className="status-icon danger">!</div><h1>Não foi possível sincronizar</h1><p className="muted">Verifique a internet e tente novamente.</p><button className="primary-button" onClick={()=>{setError('');setRetry(x=>x+1)}}>Tentar novamente</button></main>
+ if(!ready||!today)return <main className="center-state"><div className="spinner"/><h1>Preparando seus treinos</h1><p className="muted">Aplicando a ficha operacional de setembro/2026.</p></main>
+ if(active)return <Runner user={user} session={active} onDone={()=>{setActive(null);void refresh();setTab('history')}}/>
+ if(selected)return <Pre user={user} template={selected} back={()=>setSelected(null)} start={x=>{setActive(x);setSelected(null)}}/>
+ const titles={today:`Olá, ${user.email?.split('@')[0]}`,workouts:'Seus treinos',history:'Evolução',body:'Corpo',more:'Check-in'}
+ return <div className="app-shell"><header className="topbar"><div><p className="eyebrow">FICHA SETEMBRO/2026</p><h1>{titles[tab]}</h1></div><span className={`online-dot ${navigator.onLine?'':'offline'}`}/></header><main className="content">
+  {tab==='today'&&<><section className="hero-card"><div><span className="badge">{today.is_optional?'OPCIONAL HOJE':'TREINO DE HOJE'}</span><h2>{today.code} — {today.name}</h2><p>{today.description}</p></div><button className="start-button" onClick={()=>setSelected(today)}>Iniciar treino</button><small>Semana {septemberWeek()} · RPE {septemberWeeks[septemberWeek()-1].rpe} · sem falha e sem HIIT</small></section><section className="metric-grid"><article><strong>{week.length}/4</strong><span>Treinos na semana</span></article><article><strong>{sessions.reduce((a,x)=>a+(x.total_duration_minutes??0),0)} min</strong><span>Tempo total registrado</span></article><article><strong>{painAvg}{pain.length?'/10':''}</strong><span>Dor lombar média</span></article><article><strong>{measurements[0]?.weight_kg?`${measurements[0].weight_kg} kg`:'—'}</strong><span>Último peso</span></article></section><section className="safety-card"><span className="safety-dot"/><div><strong>Semáforo da lombar</strong><p>{lumbarGuidance.yellow}</p></div></section><section className="plain-card"><h3>Meta da semana {septemberWeek()}</h3><p>{septemberWeeks[septemberWeek()-1].goal}</p></section></>}
+  {tab==='workouts'&&templates.map(w=><section className="plain-card workout-card" key={w.id}><div><span className="badge">{w.is_optional?'OPCIONAL':['','SEGUNDA','TERÇA','QUARTA','QUINTA','SEXTA'][w.weekday]}</span><h2>{w.code} — {w.name}</h2><p>{w.description}</p></div><details><summary>{w.exercises.length} etapas</summary><ol>{w.exercises.map(x=><li key={x.id}><strong>{x.exercise.name}</strong><span>{target(x)}</span></li>)}</ol></details><button className="secondary-button" onClick={()=>setSelected(w)}>Iniciar este treino</button></section>)}
+  {tab==='history'&&(sessions.length?sessions.map(s=><section className="history-row" key={s.id}><div><strong>{s.name}</strong><span>{new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'short'}).format(new Date(s.started_at))}</span></div><div className="history-metrics"><span>{s.total_duration_minutes??'—'} min</span><span>Dor {s.pain_before??'—'} → {s.pain_after??'—'}</span><span>Qualidade {s.workout_quality??'—'}/5</span></div></section>):<Empty title="Nenhum treino concluído" text="O primeiro registro aparecerá aqui."/>)}
+  {tab==='body'&&<Body user={user} items={measurements} saved={refresh}/>} {tab==='more'&&<More user={user} signOut={onSignOut}/>} </main><nav className="bottom-nav">{([['today','●','Hoje'],['workouts','▦','Treinos'],['history','↗','Evolução'],['body','○','Corpo'],['more','•••','Mais']] as [Tab,string,string][]).map(([k,i,l])=><button key={k} className={tab===k?'active':''} onClick={()=>setTab(k)}><span>{i}</span>{l}</button>)}</nav></div>
 }
+
+function Pre({user,template,back,start}:{user:User;template:Template;back:()=>void;start:(x:{id:string;startedAt:string;template:Template})=>void}){
+ const [f,setF]=useState({pain:0,energy:3,recovery:3,radiating:false,tingling:false,numbness:false,weakness:false,urgent:false}),[busy,setBusy]=useState(false),[error,setError]=useState('');const neuro=f.radiating||f.tingling||f.numbness||f.weakness||f.urgent
+ async function go(){if(!supabase)return;setBusy(true);const id=crypto.randomUUID(),now=new Date().toISOString();const {error:e}=await supabase.from('workout_sessions').insert({id,user_id:user.id,workout_template_id:template.id,name:`${template.code} — ${template.name}`,status:'in_progress',started_at:now,pain_before:f.pain,energy_before:f.energy,recovery_before:template.is_optional?f.recovery:null,radiating_pain:f.radiating,tingling:f.tingling,numbness:f.numbness,weakness:f.weakness,progressions_blocked:neuro,plan_version:'setembro_2026_v2',client_updated_at:now});if(!e)await supabase.from('pain_logs').insert({user_id:user.id,workout_session_id:id,timing:'pre_workout',pain_level:f.pain,radiating_pain:f.radiating,tingling:f.tingling,numbness:f.numbness,weakness:f.weakness,bladder_or_bowel_change:f.urgent,client_updated_at:now});setBusy(false);if(e)return setError(e.message);localStorage.setItem('training.active',JSON.stringify({userId:user.id,id,startedAt:now,template,drafts:{}}));start({id,startedAt:now,template})}
+ return <Shell eyebrow="ANTES DO TREINO" title={`${template.code} — ${template.name}`} back={back}>{neuro&&<div className="alert red"><strong>Treino bloqueado.</strong><p>{lumbarGuidance.red}</p></div>}<section className="form-card"><Range label="Dor lombar agora" value={f.pain} max={10} onChange={pain=>setF({...f,pain})}/><Range label="Energia" value={f.energy} max={5} onChange={energy=>setF({...f,energy})}/>{template.is_optional&&<Range label="Recuperação" value={f.recovery} max={5} onChange={recovery=>setF({...f,recovery})}/>}<fieldset><legend>Algum sintoma novo?</legend>{([['radiating','Dor irradiada'],['tingling','Formigamento'],['numbness','Dormência'],['weakness','Fraqueza'],['urgent','Alteração urinária/intestinal ou dormência perineal']] as const).map(([k,l])=><Check key={k} label={l} checked={f[k]} change={v=>setF({...f,[k]:v})}/>)}</fieldset></section>{error&&<p className="feedback error">{error}</p>}<button className="primary-button" disabled={busy||neuro} onClick={()=>void go()}>{neuro?'Bloqueado por segurança':busy?'Salvando…':'Começar agora'}</button></Shell>
+}
+
+function Runner({user,session,onDone}:{user:User;session:{id:string;startedAt:string;template:Template};onDone:()=>void}){
+ const [index,setIndex]=useState(0),[drafts,setDrafts]=useState<Record<string,Draft>>(()=>JSON.parse(localStorage.getItem('training.active')??'{}').drafts??{}),[rest,setRest]=useState(0),[busy,setBusy]=useState(false)
+ const [post,setPost]=useState({pain:0,maxPain:0,quality:3,changed:false,radiating:false,tingling:false,numbness:false,weakness:false,aggravating:'',comfortable:'',notes:'',cardioMinutes:'',cardioModality:'Esteira',cardioRpe:'4'})
+ const item=session.template.exercises[index];useEffect(()=>{if(!rest)return;const t=setInterval(()=>setRest(v=>Math.max(0,v-1)),1000);return()=>clearInterval(t)},[rest]);useEffect(()=>localStorage.setItem('training.active',JSON.stringify({userId:user.id,...session,drafts})),[drafts,session,user.id])
+ if(!item)return <Post post={post} setPost={setPost} busy={busy} finish={async()=>{if(!supabase)return;setBusy(true);const now=new Date(),neuro=post.radiating||post.tingling||post.numbness||post.weakness;const {error}=await supabase.from('workout_sessions').update({status:'completed',completed_at:now.toISOString(),pain_after:post.pain,max_pain_during:post.maxPain,workout_quality:post.quality,pain_character_changed:post.changed,radiating_pain:post.radiating,tingling:post.tingling,numbness:post.numbness,weakness:post.weakness,progressions_blocked:neuro||post.changed,aggravating_exercise:post.aggravating||null,comfortable_exercise:post.comfortable||null,notes:post.notes||null,total_duration_minutes:Math.max(1,Math.round((now.getTime()-new Date(session.startedAt).getTime())/60000)),client_updated_at:now.toISOString()}).eq('id',session.id).eq('user_id',user.id);if(!error)await supabase.from('pain_logs').insert({user_id:user.id,workout_session_id:session.id,timing:'post_workout',pain_level:post.pain,radiating_pain:post.radiating,tingling:post.tingling,numbness:post.numbness,weakness:post.weakness,notes:post.notes||null,client_updated_at:now.toISOString()});if(!error&&Number(post.cardioMinutes)>0)await supabase.from('cardio_sessions').insert({user_id:user.id,workout_session_id:session.id,modality:post.cardioModality,duration_minutes:Number(post.cardioMinutes),perceived_exertion:num(post.cardioRpe),performed_at:now.toISOString(),client_updated_at:now.toISOString()});setBusy(false);if(error)return alert(error.message);localStorage.removeItem('training.active');onDone()}}/>
+ const get=(n:number)=>drafts[`${item.id}:${n}`]??{weight:'',reps:'',duration:item.target_duration_seconds?String(item.target_duration_seconds):'',rpe:'',pain:'',technique:true,amplitude:true,saved:false};const change=(n:number,p:Partial<Draft>)=>setDrafts(a=>({...a,[`${item.id}:${n}`]:{...get(n),...p}}));const cardio=['cardio','aquecimento'].includes(item.exercise.category)
+ async function save(n:number){if(!supabase)return;const d=get(n),now=new Date().toISOString();setBusy(true);const {error}=await supabase.from('exercise_sets').upsert({user_id:user.id,workout_session_id:session.id,workout_exercise_id:item.id,exercise_id:item.exercise_id,set_number:n,weight_kg:num(d.weight),repetitions:num(d.reps),duration_seconds:num(d.duration),rpe:num(d.rpe),pain_during:num(d.pain),technique_ok:d.technique,amplitude_ok:d.amplitude,lumbar_response:Number(d.pain)>6?'much_worse':Number(d.pain)>3?'slightly_worse':'unchanged',completed_at:now,client_updated_at:now},{onConflict:'user_id,workout_session_id,exercise_id,set_number'});setBusy(false);if(error)return alert(error.message);change(n,{saved:true});setRest(item.rest_seconds_min??0)}
+ return <Shell eyebrow={`${session.template.code} · ${index+1}/${session.template.exercises.length}`} title={item.exercise.name}><>{rest>0&&<div className="rest-timer"><span>Descanso</span><strong>{Math.floor(rest/60)}:{String(rest%60).padStart(2,'0')}</strong><button onClick={()=>setRest(rest+30)}>+30s</button><button onClick={()=>setRest(0)}>Pular</button></div>}<section className="target-card"><span className="badge">META</span><strong>{target(item)}</strong><p>{item.target_rpe_min!=null?`RPE ${item.target_rpe_min}–${item.target_rpe_max}`:'Execução controlada'} · descanso {item.rest_seconds_min??0}–{item.rest_seconds_max??0}s</p>{item.notes&&<p>{item.notes}</p>}{(item.safety_notes||item.exercise.safety_notes)&&<div className="alert yellow">{item.safety_notes||item.exercise.safety_notes}</div>}</section>{Array.from({length:item.target_sets},(_,i)=>i+1).map(n=>{const d=get(n);return <section className={`set-card ${d.saved?'saved':''}`} key={n}><h3>Série {n} {d.saved&&'✓'}</h3><div className="input-grid">{!cardio&&<N label="Carga kg" value={d.weight} change={weight=>change(n,{weight,saved:false})}/>} {item.target_reps_max&&<N label="Repetições" value={d.reps} change={reps=>change(n,{reps,saved:false})}/>} {item.target_duration_seconds&&<N label="Segundos" value={d.duration} change={duration=>change(n,{duration,saved:false})}/>} {!cardio&&<N label="RPE" value={d.rpe} change={rpe=>change(n,{rpe,saved:false})}/>} {!cardio&&<N label="Dor /10" value={d.pain} change={pain=>change(n,{pain,saved:false})}/>}</div>{!cardio&&<div className="check-grid"><Check label="Técnica ok" checked={d.technique} change={technique=>change(n,{technique,saved:false})}/><Check label="Amplitude ok" checked={d.amplitude} change={amplitude=>change(n,{amplitude,saved:false})}/></div>}<button className="secondary-button" disabled={busy} onClick={()=>void save(n)}>{d.saved?'Atualizar série':'Salvar série'}</button></section>})}<button className="primary-button" onClick={()=>{setRest(0);setIndex(index+1)}}>{index+1===session.template.exercises.length?'Finalizar exercícios':'Próximo exercício'}</button></></Shell>
+}
+
+function Post({post,setPost,busy,finish}:{post:any;setPost:(x:any)=>void;busy:boolean;finish:()=>void}){return <Shell eyebrow="REGISTRO PÓS-TREINO" title="Como foi?"><section className="form-card"><Range label="Dor lombar agora" value={post.pain} max={10} onChange={pain=>setPost({...post,pain})}/><Range label="Maior dor durante" value={post.maxPain} max={10} onChange={maxPain=>setPost({...post,maxPain})}/><Range label="Qualidade do treino" value={post.quality} max={5} onChange={quality=>setPost({...post,quality})}/><Check label="A dor mudou de característica" checked={post.changed} change={changed=>setPost({...post,changed})}/>{([['radiating','Irradiação'],['tingling','Formigamento'],['numbness','Dormência'],['weakness','Fraqueza']] as const).map(([k,l])=><Check key={k} label={l} checked={post[k]} change={v=>setPost({...post,[k]:v})}/>)}<T label="Exercício que piorou sintomas" value={post.aggravating} change={aggravating=>setPost({...post,aggravating})}/><T label="Exercício confortável" value={post.comfortable} change={comfortable=>setPost({...post,comfortable})}/><div className="input-grid"><N label="Cardio min" value={post.cardioMinutes} change={cardioMinutes=>setPost({...post,cardioMinutes})}/><N label="Intensidade /10" value={post.cardioRpe} change={cardioRpe=>setPost({...post,cardioRpe})}/></div><T label="Modalidade" value={post.cardioModality} change={cardioModality=>setPost({...post,cardioModality})}/><T label="Observações" value={post.notes} change={notes=>setPost({...post,notes})}/></section><button className="primary-button" disabled={busy} onClick={finish}>{busy?'Salvando…':'Concluir treino'}</button></Shell>}
+
+function Body({user,items,saved}:{user:User;items:Measurement[];saved:()=>Promise<void>}){const [weight,setWeight]=useState(''),[waist,setWaist]=useState('');async function save(){if(!supabase||(!weight&&!waist))return;const now=new Date().toISOString(),{error}=await supabase.from('body_measurements').insert({user_id:user.id,measured_at:now,weight_kg:num(weight),waist_cm:num(waist),client_updated_at:now});if(error)return alert(error.message);setWeight('');setWaist('');await saved()}return <><section className="form-card"><h2>Nova medição</h2><div className="input-grid"><N label="Peso kg" value={weight} change={setWeight}/><N label="Cintura cm" value={waist} change={setWaist}/></div><button className="secondary-button" onClick={()=>void save()}>Salvar medição</button></section>{items.map(x=><section className="history-row" key={x.id}><strong>{new Intl.DateTimeFormat('pt-BR').format(new Date(x.measured_at))}</strong><div className="history-metrics"><span>{x.weight_kg??'—'} kg</span><span>{x.waist_cm??'—'} cm</span></div></section>)}</>}
+function More({user,signOut}:{user:User;signOut:()=>Promise<void>}){const [f,setF]=useState({weight:'',waist:'',workouts:'4',cardio:'',steps:'',sleep:'3',energy:'3',recovery:'3',stress:'3',pain:'',optional:false,flare:false,neuro:false,best:'',worst:'',notes:''});async function save(){if(!supabase)return;const now=new Date().toISOString(),{error}=await supabase.from('weekly_checkins').upsert({user_id:user.id,week_start:monday(),weight_kg:num(f.weight),waist_cm:num(f.waist),workouts_completed:Number(f.workouts||0),cardio_minutes:Number(f.cardio||0),average_steps:num(f.steps),sleep_quality:Number(f.sleep),energy:Number(f.energy),muscle_recovery:Number(f.recovery),stress:Number(f.stress),average_lumbar_pain:num(f.pain),optional_workout_done:f.optional,had_lumbar_flare:f.flare,had_neurological_symptoms:f.neuro,best_progress_exercise:f.best||null,worst_response_exercise:f.worst||null,comments:f.notes||null,client_updated_at:now},{onConflict:'user_id,week_start'});alert(error?error.message:'Check-in semanal salvo.')}return <><section className="form-card"><h2>Check-in semanal</h2><div className="input-grid">{([['weight','Peso kg'],['waist','Cintura cm'],['workouts','Treinos /4'],['cardio','Cardio min'],['steps','Passos/dia'],['sleep','Sono /5'],['energy','Energia /5'],['recovery','Recuperação /5'],['stress','Estresse /5'],['pain','Dor média /10']] as const).map(([k,l])=><N key={k} label={l} value={f[k]} change={v=>setF({...f,[k]:v})}/>)}</div><Check label="Treino E realizado" checked={f.optional} change={optional=>setF({...f,optional})}/><Check label="Houve crise lombar" checked={f.flare} change={flare=>setF({...f,flare})}/><Check label="Houve sintoma neurológico" checked={f.neuro} change={neuro=>setF({...f,neuro})}/><T label="Exercício que melhor progrediu" value={f.best} change={best=>setF({...f,best})}/><T label="Exercício com pior resposta" value={f.worst} change={worst=>setF({...f,worst})}/><T label="Observações" value={f.notes} change={notes=>setF({...f,notes})}/><button className="secondary-button" onClick={()=>void save()}>Salvar check-in</button></section><section className="plain-card"><h3>Baseline ativo</h3><p>Readaptação · Setembro/2026 · 4 + 1 opcional.</p><button className="danger-button" onClick={()=>void signOut()}>Sair da conta</button></section></>}
+
+function Shell({eyebrow,title,back,children}:{eyebrow:string;title:string;back?:()=>void;children:React.ReactNode}){return <div className="app-shell runner-shell"><header className="runner-header">{back&&<button className="back-button" onClick={back}>‹</button>}<div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1></div></header><main className="content">{children}</main></div>}
+function Range({label,value,max,onChange}:{label:string;value:number;max:number;onChange:(v:number)=>void}){return <label className="range-field"><span>{label}<strong>{value}/{max}</strong></span><input type="range" min="0" max={max} value={value} onChange={e=>onChange(Number(e.target.value))}/></label>}
+function N({label,value,change}:{label:string;value:string;change:(v:string)=>void}){return <label>{label}<input type="number" inputMode="decimal" min="0" step="0.5" value={value} onChange={e=>change(e.target.value)}/></label>}
+function T({label,value,change}:{label:string;value:string;change:(v:string)=>void}){return <label>{label}<input value={value} onChange={e=>change(e.target.value)}/></label>}
+function Check({label,checked,change}:{label:string;checked:boolean;change:(v:boolean)=>void}){return <label className="check-row"><input type="checkbox" checked={checked} onChange={e=>change(e.target.checked)}/>{label}</label>}
+function Empty({title,text}:{title:string;text:string}){return <section className="empty"><div className="status-icon">○</div><h2>{title}</h2><p className="muted">{text}</p></section>}
+function target(x:ExerciseItem){return x.target_duration_seconds?`${x.target_sets} × ${Math.round(x.target_duration_seconds/60)} min`:`${x.target_sets} × ${x.target_reps_min}${x.target_reps_min!==x.target_reps_max?`–${x.target_reps_max}`:''}`}

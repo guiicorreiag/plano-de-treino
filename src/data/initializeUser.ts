@@ -48,6 +48,9 @@ export async function initializeUser(user: User): Promise<InitializationResult> 
         weekday: workout.weekday,
         is_optional: workout.optional,
         sort_order: index,
+        baseline_version: 'setembro_2026_v2',
+        block_name: 'Readaptação — 4 dias + 1 opcional',
+        deleted_at: null,
         client_updated_at: clientUpdatedAt,
       })),
       { onConflict: 'user_id,code', ignoreDuplicates: false },
@@ -56,6 +59,15 @@ export async function initializeUser(user: User): Promise<InitializationResult> 
   if (workoutError) throw workoutError
 
   const workoutIds = new Map((workouts ?? []).map((workout) => [workout.code, workout.id]))
+  const templateIds = [...workoutIds.values()]
+  if (templateIds.length) {
+    const { error: archiveError } = await supabase
+      .from('workout_exercises')
+      .update({ deleted_at: clientUpdatedAt, client_updated_at: clientUpdatedAt })
+      .eq('user_id', user.id)
+      .in('workout_template_id', templateIds)
+    if (archiveError) throw archiveError
+  }
   const workoutExerciseRows = seedWorkouts.flatMap((workout) => {
     const templateId = workoutIds.get(workout.code)
     if (!templateId) throw new Error(`Treino ${workout.code} não foi criado.`)
@@ -74,8 +86,14 @@ export async function initializeUser(user: User): Promise<InitializationResult> 
         target_reps_max: item.repsMax ?? null,
         target_duration_seconds: item.durationSeconds ?? null,
         rest_seconds: item.restSeconds,
+        rest_seconds_min: item.restSeconds,
+        rest_seconds_max: item.restSecondsMax ?? item.restSeconds,
+        target_rpe_min: item.rpeMin ?? null,
+        target_rpe_max: item.rpeMax ?? null,
+        progression_notes: 'Double progression: só considerar aumento após atingir o topo da faixa em todas as séries, com técnica, amplitude, RPE, lombar e recuperação adequados.',
         notes: item.notes ?? null,
         safety_notes: item.safetyNotes ?? null,
+        deleted_at: null,
         client_updated_at: clientUpdatedAt,
       }
     })

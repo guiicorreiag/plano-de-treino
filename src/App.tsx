@@ -1,7 +1,7 @@
 import { useAuth } from './auth/AuthProvider'
 import { isSupabaseConfigured } from './lib/supabase'
 import { AuthPage } from './pages/AuthPage'
-import { HomePage } from './pages/HomePage'
+import { HomePage } from './tracker/Tracker'
 
 function App() {
   const { loading, user, signOut } = useAuth()

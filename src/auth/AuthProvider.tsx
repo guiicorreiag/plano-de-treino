@@ -13,7 +13,18 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(navigator.onLine)
+  const [online, setOnline] = useState(navigator.onLine)
+  const [offlineUser, setOfflineUser] = useState<User | null>(() => {
+    try { return JSON.parse(localStorage.getItem('training.offline-user') ?? 'null') } catch { return null }
+  })
+  function remember(next: Session | null) {
+    if (next?.user) {
+      const user = { id: next.user.id, email: next.user.email, aud: next.user.aud, created_at: next.user.created_at } as User
+      localStorage.setItem('training.offline-user', JSON.stringify(user))
+      setOfflineUser(user)
+    }
+  }
 
   useEffect(() => {
     if (!supabase) {
@@ -24,17 +35,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let active = true
     void supabase.auth.getSession().then(({ data }) => {
       if (active) {
+        remember(data.session)
         setSession(data.session)
         setLoading(false)
       }
-    })
+    }).catch(() => { if (active) setLoading(false) })
 
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      remember(nextSession)
       setSession(nextSession)
       setLoading(false)
     })
 
+    const connectivity = () => { setOnline(navigator.onLine); if (!navigator.onLine) setLoading(false) }
+    window.addEventListener('online', connectivity)
+    window.addEventListener('offline', connectivity)
     return () => {
+      window.removeEventListener('online', connectivity)
+      window.removeEventListener('offline', connectivity)
       active = false
       data.subscription.unsubscribe()
     }
@@ -44,12 +62,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       loading,
       session,
-      user: session?.user ?? null,
+      user: session?.user ?? (!online ? offlineUser : null),
       signOut: async () => {
-        if (supabase) await supabase.auth.signOut()
+        if (supabase) { const { error } = await supabase.auth.signOut(); if (error) throw error }
+        localStorage.removeItem('training.offline-user')
+        setOfflineUser(null)
       },
     }),
-    [loading, session],
+    [loading, session, online, offlineUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

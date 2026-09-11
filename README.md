@@ -1,87 +1,37 @@
-# Plano de Treino
+# Plano de Treino — versão 3
 
-PWA mobile-first para acompanhamento pessoal de musculação, condicionamento, composição corporal e evolução da dor lombar.
+PWA pessoal para registrar musculação, cardio, recuperação e medidas. Publicação: https://guiicorreiag.github.io/plano-de-treino/
 
-## Estado atual — operacional
+## Uso atual
+- Segunda: A, corpo inteiro com ênfase superior.
+- Terça: B, complementos leves e core.
+- Quarta: C, corpo inteiro com ênfase inferior.
+- Quinta: Extra 1, cardio confortável.
+- Sexta: Extra 2, cardio e poucos complementos. Extras não substituem os principais.
+- Lista completa durante a sessão; registre na ordem disponível e use Fazer depois/Retomar.
+- Carga, repetições ou segundos e RPE por série. Sintomas e execução são opcionais e não presumidos.
+- O botão OK confirma a série realizada; ✓ permite editar. Copiar última carga não copia repetições/RPE.
+- Descanso com pausa, retomada, +30 segundos e encerramento.
+- É possível encerrar sessões parciais, preservadas sem avanço da adaptação.
 
-- autenticação Supabase por e-mail e senha;
-- sessão persistente no navegador;
-- criação idempotente do perfil e dos treinos A/B/C/D/E no primeiro acesso;
-- ficha de readaptação de setembro/2026: A/B/C/D de segunda a quinta e sexta reservada ao E opcional ou descanso;
-- registro por série de carga, repetições/duração, RPE, dor, técnica e amplitude;
-- cronômetro de descanso, check-in pré e pós-treino e registro de cardio;
-- histórico de sessões, medidas corporais e check-in semanal;
-- retomada local de treino interrompido e PWA instalável;
-- shell mobile-first em tema escuro;
-- manifest e service worker para instalação como PWA;
-- build e deploy preparados para GitHub Pages;
-- RLS no Supabase: cada usuário acessa apenas os próprios dados.
+## Adaptação e versionamento
+O esforço de referência avança a cada três sessões principais elegíveis: RPE 5–6, 5–6,5, 6–7 e 6–7. Não depende da data. Após 12 sessões principais concluídas, abre uma revisão de recuperação, técnica, lombar e sintomas. Doze é um checkpoint operacional, não liberação clínica automática. Pode prolongar por mais três sessões.
 
-O service worker mantém o aplicativo disponível após o primeiro carregamento. Um treino já iniciado preserva o rascunho no dispositivo e pode ser retomado; a sincronização definitiva com o banco exige conexão.
+A ficha de consolidação é apresentada antes de ativar: mesmos movimentos conhecidos, duas séries, pequena ampliação da faixa de repetições de força. Não aumenta cargas automaticamente. Alertas neurológicos recentes impedem a ativação. Cada sessão armazena uma cópia completa da ficha e mantém a versão original.
 
-## Requisitos
+## Persistência e segurança
+`tracker_records` guarda cada sessão inteira (ficha, séries, pré/pós e cardio) como um registro atômico. Settings, check-ins e medidas usam registros separados. RLS forçado e políticas por `auth.uid()`; anon não lê nem grava. `save_tracker_record` é SECURITY INVOKER, aplica comparação de revisão e idempotência por mutation_id. Esquema aplicado via Supabase MCP: `atomic_tracker_records`; SQL em `db/tracker.sql`.
 
-- Node.js 24;
-- npm 11;
-- projeto Supabase configurado com as tabelas e políticas deste projeto.
+IndexedDB guarda a fila separada por usuário. O app salva primeiro no aparelho, sincroniza ao voltar a conexão, no botão Sincronizar e periodicamente enquanto aberto. Conflitos entre aparelhos exigem comparação e escolha explícita. Não limpar dados do navegador com envios pendentes. Backup JSON disponível em Mais.
 
-## Configuração local
+As tabelas antigas são preservadas e lidas para importar o histórico local. Não há nova semeadura a cada login. Sessões antigas concluídas com séries de força reais contam para adaptação; campos não respondidos pelo sistema antigo permanecem identificados como históricos. Os dois treinos iniciais documentados fora do app não são inventados como sessões digitais.
 
-```bash
-npm install
-cp .env.example .env.local
-npm run dev
-```
+O app deve ser aberto conectado ao menos uma vez para preparar o cache offline. A identidade local previamente autenticada permite abrir registros offline; a sincronização sempre exige sessão Supabase válida. Nenhuma credencial administrativa é usada.
 
-Preencha o `.env.local` com a URL do projeto e a **publishable key** do Supabase. Nunca use `service_role`, `sb_secret_...` ou qualquer chave secreta no frontend.
+## Desenvolvimento e publicação
+Node.js 24. `npm ci`, `npm test`, `npm run build`. Configure a URL e chave pública do Supabase conforme `.env.example`. Nunca inclua service_role ou chaves secretas.
 
-```env
-VITE_SUPABASE_URL=https://seu-projeto.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
-VITE_BASE_PATH=/plano-de-treino/
-```
+O workflow de Pages testa e publica a branch main. Os arquivos `seedData` e a tela antiga são preservados como referência histórica; a interface ativa está em `src/tracker`.
 
-## Autenticação
-
-O login por e-mail e senha vem habilitado por padrão no Supabase. Em **Authentication → URL Configuration**, configure:
-
-- Site URL: a URL final do GitHub Pages;
-- Redirect URLs: a mesma URL do GitHub Pages e `http://localhost:5173/**` para desenvolvimento.
-
-O projeto hospedado exige confirmação de e-mail por padrão. Após criar a conta, confirme o endereço recebido antes de entrar.
-
-## Testes e build
-
-```bash
-npm test
-npm run build
-npm run preview
-```
-
-## Publicação no GitHub Pages
-
-O repositório é publicado automaticamente no GitHub Pages a cada commit na branch `main` pelo workflow **Deploy GitHub Pages**.
-
-A URL e a publishable key usadas pelo frontend são públicas por definição e estão no workflow. A segurança dos dados é garantida pelas políticas RLS. Nunca adicione uma `service_role`, `sb_secret_...` ou outra chave secreta ao repositório.
-
-## Estratégia de inicialização
-
-Após o primeiro login, o aplicativo:
-
-1. cria ou atualiza o perfil;
-2. faz `upsert` dos exercícios por `(user_id, name)`;
-3. faz `upsert` dos treinos por `(user_id, code)`;
-4. faz `upsert` da ordem dos exercícios por `(user_id, workout_template_id, sort_order)`.
-
-O processo pode ser repetido com segurança caso a conexão seja interrompida, sem criar duplicidades.
-
-## Segurança
-
-- nenhuma chave secreta deve ser adicionada ao frontend;
-- `.env` e `.env.local` estão ignorados pelo Git;
-- todas as tabelas públicas têm RLS habilitado e forçado;
-- `anon` não possui acesso às tabelas do domínio;
-- usuários autenticados só podem operar linhas cujo `user_id` seja igual a `auth.uid()`;
-- progressão de carga fica bloqueada quando há sintomas neurológicos registrados.
-
-O aplicativo organiza e acompanha treinos. Ele não realiza diagnóstico médico nem substitui avaliação profissional.
+## Validação
+Testes cobrem ordem livre, persistência e retomada, sessão parcial, idempotência após resposta perdida, edição durante envio, isolamento local, conflitos, contagem sem datas e transição preservando snapshots. SQL de validação executado em transações revertidas confirmou idempotência, recusa de revisão obsoleta e RLS. A checagem de segurança não encontrou alertas nas novas tabelas; a proteção opcional de senhas vazadas do Auth continua desabilitada no projeto.

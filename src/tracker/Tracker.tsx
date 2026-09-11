@@ -37,10 +37,14 @@ export function HomePage({user,onSignOut}:{user:User;onSignOut:()=>Promise<void>
   writeChain.current=job.catch(()=>{})
   try{await job;failedIds.current.delete(id);setFatal(failedIds.current.size>0)}catch(e){failedIds.current.add(id);setFatal(true);setMessage('É necessário liberar espaço no aparelho. Exporte seus registros antes de sair. '+errorText(e));throw e}finally{pending.current--;setWriting(pending.current)}
  }
+ async function cancelWorkout(w:Workout){
+  if(w.status!=='active'||!window.confirm('Cancelar este treino? Ele sairá da retomada e não contará na evolução.'))return
+  try{await save(w.id,'session',{...w,status:'cancelled',eligible:false,end:new Date().toISOString()});setActive(null);setTab('today');setMessage('Treino cancelado. Você já pode iniciar um novo.');void sync()}catch(e){setMessage(errorText(e))}
+ }
  const settings:Settings=records.find(r=>r.kind==='settings'&&r.id===settingsId)?.payload??initialSettings
  const sessions:Workout[]=records.filter(r=>r.kind==='session').map(r=>r.payload)
  const count=countAdaptation(sessions),catalog=plans(settings.phase)
- const current=sessions.find(s=>s.id===active)
+ const current=sessions.find(s=>s.id===active&&s.status!=='cancelled')
  const completed=sessions.filter(s=>s.status==='completed').sort((a,b)=>b.start.localeCompare(a.start))
  const week=completed.filter(s=>localDate(s.start)>=weekStart())
  const chosen=catalog.find(p=>p.day===new Date(new Date().toLocaleString('en-US',{timeZone:'America/Sao_Paulo'})).getDay())
@@ -54,10 +58,10 @@ export function HomePage({user,onSignOut}:{user:User;onSignOut:()=>Promise<void>
    {fatal&&<button className="secondary-button" onClick={()=>{for(const id of failedIds.current){const row=rows.current.find(r=>r.id===id);if(row)void save(row.id,row.kind,row.payload).catch(()=>{})}}}>Tentar salvar no aparelho novamente</button>}
    {message&&<div className="alert yellow">{message}<button onClick={()=>setMessage('')}>Fechar</button></div>}
    {conflicts.map(r=><section className="alert yellow" key={r.id}><strong>Este registro também foi alterado em outro aparelho.</strong><p>Compare as cópias antes de escolher. A cópia não escolhida pode ser exportada.</p><details><summary>Comparar versões</summary><h4>Neste aparelho</h4><pre>{JSON.stringify(r.payload,null,2)}</pre><h4>Na nuvem</h4><pre>{JSON.stringify(r.conflict.payload,null,2)}</pre></details><button onClick={()=>download('conflito-treino.json',{local:r.payload,cloud:r.conflict.payload})}>Exportar ambas</button><button onClick={()=>void resolveConflict(user.id,r.id,'remote').then(refresh)}>Usar nuvem</button><button onClick={()=>void resolveConflict(user.id,r.id,'local').then(sync)}>Manter este aparelho</button></section>)}
-   {current?<WorkoutEditor workout={current} history={completed.filter(s=>s.id!==current.id)} update={update} saving={writing>0||fatal} back={()=>setActive(null)} finish={async w=>{await save(w.id,'session',w);setActive(null);setTab('history');void sync()}}/>:
+   {current?<WorkoutEditor cancel={()=>cancelWorkout(current)} workout={current} history={completed.filter(s=>s.id!==current.id)} update={update} saving={writing>0||fatal} back={()=>setActive(null)} finish={async w=>{await save(w.id,'session',w);setActive(null);setTab('history');void sync()}}/>:
     pre?<PreWorkout plan={pre} back={()=>setPre(null)} start={async symptoms=>{const id=crypto.randomUUID();const w:Workout={id,plan:structuredClone(pre),phase:settings.phase,start:new Date().toISOString(),status:'active',eligible:false,logs:{},deferred:[],pre:symptoms,post:emptySymptoms(),rpeTarget:settings.phase==='adaptation'?rpeTarget(count):'6–7'};await save(id,'session',w);setPre(null);setActive(id);void sync()}}/>:<>
     {tab==='today'&&<>
-     {sessions.filter(s=>s.status==='active').map(s=><section className="hero-card" key={s.id}><h2>Treino em andamento</h2><p>{s.plan.code} · {s.plan.name}</p><button className="primary-button" onClick={()=>setActive(s.id)}>Retomar treino</button></section>)}
+     {sessions.filter(s=>s.status==='active').map(s=><section className="hero-card" key={s.id}><h2>Treino em andamento</h2><p>{s.plan.code} · {s.plan.name}</p><button className="primary-button" onClick={()=>setActive(s.id)}>Retomar treino</button><button className="secondary-button" disabled={writing>0||fatal} onClick={()=>void cancelWorkout(s)}>Cancelar treino</button></section>)}
      <section className="hero-card"><span className="badge">{chosen?days[chosen.day]:'DESCANSO'}</span><h2>{chosen?`${chosen.code} · ${chosen.name}`:'Hoje é dia de descanso'}</h2><p>Segunda, terça e quarta: principais. Quinta e sexta: extras, quando houver recuperação e disponibilidade.</p>{chosen&&<button className="primary-button" disabled={sessions.some(s=>s.status==='active')} onClick={()=>setPre(chosen)}>Iniciar treino</button>}</section>
      <div className="metric-grid"><article><strong>{week.filter(s=>!s.plan.optional&&!s.partial).length}/3</strong><span>Principais nesta semana</span></article><article><strong>{week.filter(s=>s.plan.optional).length}</strong><span>Extras nesta semana</span></article><article><strong>{Math.round(week.reduce((n,s)=>n+cardioMinutes(s),0))} min</strong><span>Cardio na semana</span></article><article><strong>{count}/{settings.checkpoint}</strong><span>Sessões de adaptação</span></article></div>
      <section className="plain-card"><h2>{settings.phase==='adaptation'?'Readaptação':'Consolidação'}</h2><p>{settings.phase==='adaptation'?`Próxima sessão: RPE ${rpeTarget(count)}. A referência de esforço muda a cada três treinos principais concluídos, nunca pela data.`:'RPE 6–7. A ficha mudou, mas as cargas não aumentam automaticamente.'}</p><p>Treinos extras não antecipam a troca. Sessões parciais ficam no histórico, sem avançar o contador. O histórico anterior com séries realizadas foi preservado.</p></section>
@@ -81,7 +85,7 @@ function SymptomsForm({value,change,post=false}:{value:Symptoms;change:(s:Sympto
 function validSymptoms(s:Symptoms){return [['pain',0,10],['energy',1,5],['quality',1,5],['recovery',1,5]].every(([key,min,max])=>{const v=s[key as keyof Symptoms];return !v||Number.isFinite(Number(v))&&Number(v)>=Number(min)&&Number(v)<=Number(max)})}
 function PreWorkout({plan,back,start}:{plan:Plan;back:()=>void;start:(s:Symptoms)=>Promise<void>}){const [symptoms,setSymptoms]=useState(emptySymptoms),[busy,setBusy]=useState(false),[error,setError]=useState('');return <section className="plain-card"><button onClick={back}>Voltar</button><h2>{plan.code} · {plan.name}</h2><p>Check rápido antes de começar. Valores não preenchidos ficam como não informados.</p><SymptomsForm value={symptoms} change={setSymptoms}/>{error&&<p role="alert">{error}</p>}<button className="primary-button" disabled={busy||hasRedFlag(symptoms)} onClick={()=>{if(!validSymptoms(symptoms))return setError('Confira as escalas de dor, energia e recuperação.');setBusy(true);void start(symptoms).catch(e=>{setError(errorText(e));setBusy(false)})}}>Começar treino</button></section>}
 
-function WorkoutEditor({workout:w,history,update,saving,back,finish}:{workout:Workout;history:Workout[];update:(w:Workout)=>void;saving:boolean;back:()=>void;finish:(w:Workout)=>Promise<void>}){
+function WorkoutEditor({workout:w,history,update,saving,back,finish,cancel}:{cancel:()=>Promise<void>;workout:Workout;history:Workout[];update:(w:Workout)=>void;saving:boolean;back:()=>void;finish:(w:Workout)=>Promise<void>}){
  const [review,setReview]=useState(false),[timer,setTimer]=useState<{until:number;paused:number|null}|null>(null),[now,setNow]=useState(Date.now()),[error,setError]=useState(''),[busy,setBusy]=useState(false)
  useEffect(()=>{const id=setInterval(()=>setNow(Date.now()),500);return()=>clearInterval(id)},[])
  const left=timer?timer.paused??Math.max(0,Math.ceil((timer.until-now)/1000)):0
@@ -106,7 +110,7 @@ function WorkoutEditor({workout:w,history,update,saving,back,finish}:{workout:Wo
    </div>})}
   </details>
  </section>})}
- <button className="primary-button" disabled={saving} onClick={()=>setReview(true)}>Revisar e finalizar</button><p>Você pode finalizar mesmo sem realizar todos os exercícios. Séries não realizadas não serão inventadas.</p>
+ <button className="primary-button" disabled={saving} onClick={()=>setReview(true)}>Revisar e finalizar</button>{w.status==='active'&&<button className="secondary-button" disabled={saving} onClick={()=>void cancel()}>Cancelar treino</button>}<p>Você pode finalizar mesmo sem realizar todos os exercícios. Séries não realizadas não serão inventadas.</p>
  </>
 }
 function Review({settings,recent,count,save,disabled}:{settings:Settings;recent:Workout[];count:number;save:(s:Settings)=>Promise<void>;disabled:boolean}){

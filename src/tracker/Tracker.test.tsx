@@ -6,6 +6,25 @@ vi.mock('../lib/supabase',()=>({supabase:null}))
 import {HomePage} from './Tracker'
 import {allRecords} from './store'
 afterEach(cleanup)
+it('cancela a retomada sem contar o treino e preserva o cancelamento ao reabrir',async()=>{
+ const user={id:crypto.randomUUID(),email:'cancel@example.invalid'} as any
+ const {putRecord}=await import('./store')
+ const {plans,emptySymptoms,countAdaptation}=await import('./model')
+ const id=crypto.randomUUID()
+ await putRecord(user.id,id,'session',{id,plan:plans('adaptation')[0],phase:'adaptation',start:new Date().toISOString(),status:'active',eligible:false,logs:{},deferred:[],pre:emptySymptoms(),post:emptySymptoms(),rpeTarget:'5–6'})
+ const confirm=vi.spyOn(window,'confirm').mockReturnValue(false)
+ const view=render(<HomePage user={user} onSignOut={async()=>{}}/>);
+ fireEvent.click(await screen.findByRole('button',{name:'Cancelar treino'}))
+ expect((await allRecords(user.id))[0].payload.status).toBe('active')
+ confirm.mockReturnValue(true)
+ fireEvent.click(screen.getByRole('button',{name:'Cancelar treino'}))
+ await waitFor(async()=>{expect((await allRecords(user.id))[0].payload.status).toBe('cancelled')})
+ expect(countAdaptation((await allRecords(user.id)).map(r=>r.payload))).toBe(0)
+ view.unmount();render(<HomePage user={user} onSignOut={async()=>{}}/>);
+ await screen.findByRole('button',{name:'Treinos'})
+ expect(screen.queryByRole('button',{name:'Retomar treino'})).toBeNull()
+ confirm.mockRestore()
+})
 describe('uso durante o treino',()=>{
  it('registra exercício fora da ordem e retoma após remontar o app',async()=>{
   const user={id:crypto.randomUUID(),email:'test@example.invalid'} as any
